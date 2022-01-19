@@ -73,15 +73,32 @@ You will also need to provide the `--volume` flag along with the `session_save_d
 
 ### Alternative Nodes
 
-Alternative nodes can be invoked by setting the `SLAMCORE_MODE` environment variable, valid options are:
+Alternative nodes can be invoked by setting the `SLAMCORE_MODE` environment
+variable, valid options are:
 
 1. `SLAM`: run the default SLAM node
 2. `DATASET_RECORDER`: run the dataset recorder node
+3. `BASH`: run bash and source the ROS `setup.bash` script
+4. `PASSTHROUGH`: Run a custom user command inside the docker
 
 e.g:
 
 ```shell
 docker run --rm -it --privileged --env SLAMCORE_MODE=DATASET_RECORDER slamcore-ros2 --show-args
+```
+
+or to run an interactive bash session and run nodes manually.
+
+```shell
+docker run --rm -it --privileged --env SLAMCORE_MODE=BASH slamcore-ros2
+
+...
+
+$ # You now have a console inside the container.
+$ # You can e.g run SLAM,
+$ ros2 launch slamcore_slam slam_publisher.launch.py
+...
+
 ```
 
 ### Recording a dataset
