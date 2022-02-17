@@ -79,7 +79,7 @@ variable, valid options are:
 1. `SLAM`: run the default SLAM node
 2. `DATASET_RECORDER`: run the dataset recorder node
 3. `BASH`: run bash and source the ROS `setup.bash` script
-4. `PASSTHROUGH`: Run a custom user command inside the docker
+4. `PASSTHROUGH`: Run a custom user command inside the docker container
 
 e.g:
 
@@ -122,7 +122,7 @@ It is also possible to execute:
 ```shell
 docker run --rm -it ros:foxy bash
 ```
-and then within that docker run commands such as:
+and then within that docker container run commands such as:
 
 ```shell
 ros2 topic list
@@ -149,3 +149,24 @@ and then inside it, run
 ros2 service list -t
 ```
 to get the full list of available services. You can find more details on the available services in our [ROS2 Wrapper Advertised Services](https://docs.slamcore.com/ros2-wrapper.html#advertised-services) documentation section.
+
+## Visualising using RViz2
+
+You can run another container with RViz2 to visualise the
+topics being published. A simple way to do this is by using a `ros:foxy-desktop` image:
+
+
+```shell
+xhost +local:docker && docker run -it --network=host --privileged --env="DISPLAY" --env="QT_X11_NO_MITSHM=1" --volume /tmp/.X11-unix:/tmp/.X11-unix:rw osrf/ros:foxy-desktop && xhost -local:docker
+```
+
+`xhost +local:docker` allows docker to access the X server to display graphics
+before launching the container and `xhost -local:docker` removes the
+permissions when exiting the container, for security.
+
+The command above will bring up a `ros:foxy-desktop` image which includes RViz2,
+so you can just run the following from inside the container to open RViz2:
+
+```shell
+rviz2
+```
