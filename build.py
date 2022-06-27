@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Build a Docker image to use with the SLAMcore software."""
 
 __copyright__ = """
 Copyright 2021 SLAMcore Ltd
@@ -29,8 +30,8 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import argparse
 import shutil
 import subprocess
+import sys
 import tempfile
-
 from pathlib import Path
 
 this_directory = Path(__file__).resolve().parent
@@ -40,7 +41,8 @@ def make_working_directory():
     return tempfile.TemporaryDirectory("-slamcore")
 
 
-def create_image(debian_path: Path, docker_tag):
+def create_image(debian_path: Path, docker_tag: str, ros_version: str):
+    # names in the temporary directory
     deb_name = "slamcore_ros.deb"
     entrypoint_file = "entrypoint.sh"
 
@@ -56,31 +58,43 @@ def create_image(debian_path: Path, docker_tag):
         shutil.copy(src=this_directory / entrypoint_file, dst=tmp_dir / entrypoint_file)
 
         docker_command = (
-            f"docker build --build-arg SLAMCORE_DEB={deb_name} "
+            f"docker build --build-arg ROS_VERSION={ros_version} --build-arg SLAMCORE_DEB={deb_name} "
             f"--build-arg ENTRYPOINT_FILE={entrypoint_file} -t {docker_tag} "
             f'-f {this_directory / "Dockerfile"} {tmp_dir}'
         )
 
-        print(f"Running: {docker_command}")
+        print(f"Running:\n\n\t{docker_command}\n")
         exit(subprocess.call(docker_command, shell=True,))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        __doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    executable = Path(sys.argv[0]).stem
+    default_tag = "slamcore-ros2"
+    usecases = {
+        f'Create the docker image, use ROS2 Foxy, default name "{default_tag}"': "--ros foxy path/to/ros-foxy-slamcore-ros.deb",
+        'Create the docker image, use ROS2 Galactic, name it "myimage"': "--tag myimage --ros galactic path/to/ros-galactic-slamcore-ros.deb",
+    }
+    parser.epilog = f'Usage examples:\n{"=" * 15}\n\n' + "\n".join(
+        (f"- {k}\n  {executable} {v}\n" for k, v in usecases.items())
+    )
 
     parser.add_argument(
-        "path",
-        help="Path to slamcore-ros2 debian to install in created image",
-        type=Path,
+        "path", help="Path to slamcore-ros2 debian to install in created image", type=Path,
     )
     parser.add_argument(
-        "-t",
-        "--tag",
-        help="Tag to give to created image",
+        "-t", "--tag", help="Tag to give to created image", type=str, default=default_tag,
+    )
+    parser.add_argument(
+        "-r",
+        "--ros",
+        help="ROS Version to use in the created image",
         type=str,
-        default="slamcore-ros2",
+        choices=("foxy", "galactic"),
+        required=True,
     )
 
     args = parser.parse_args()
-
-    create_image(args.path, args.tag)
+    create_image(args.path, args.tag, args.ros)

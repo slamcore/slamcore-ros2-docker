@@ -2,12 +2,17 @@
 
 ## Building
 
-To build the docker image, invoke the following script **on the same device the node will run**.
+To build the docker image, invoke the following script **on the same device the
+node will run**. Select either `foxy` or `galactic` as the ROS distribution using
+the `--ros` argument and make sure that you have downloaded the right SLAMcore
+Debian package for this version of ROS as well as for the architecture of the
+host system (`x86` or `Jetson`). The resulting docker image will be created with
+the tag provided by the `--tag` argument or otherwise default to
+`slamcore-ros2`.
 
 ```shell
-./build.py ../path/to/slamcore_ros2_package.deb [--tag image_tag]
+./build.py ../path/to/slamcore_ros2_package.deb --ros foxy/galactic [--tag image_tag]
 ```
-You must provide the path to the SLAMcore ROS2 Wrapper debian package for x64 or Jetson, depending on your host system. A docker image will be created with the tag provided by the second argument or default to `slamcore-ros2`.
 
 ## Running
 

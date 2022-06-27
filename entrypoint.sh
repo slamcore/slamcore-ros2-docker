@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source /opt/ros/foxy/setup.bash
+ros_version=$(cat ~/.ros_version)
+source /opt/ros/$ros_version/setup.bash
 
 slamcore_mode=${SLAMCORE_MODE:-SLAM}
 
@@ -13,7 +14,7 @@ case $slamcore_mode in
         ;;
     BASH)
         RCFILE="/tmp/rcfile.sh"
-        echo "source /opt/ros/foxy/setup.bash" > $RCFILE
+        echo "source /opt/ros/$ros_version/setup.bash" > $RCFILE
         exec bash --rcfile $RCFILE
         ;;
     PASSTHROUGH)
