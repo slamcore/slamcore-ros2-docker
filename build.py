@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Build a Docker image to use with the SLAMcore software."""
+"""Build a Docker image to use with the Slamcore software."""
 
 __copyright__ = """
-Copyright 2021 SLAMcore Ltd
+Copyright 2023 Slamcore Ltd
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
@@ -33,6 +33,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import errno
+import os
 
 this_directory = Path(__file__).resolve().parent
 
@@ -41,51 +43,79 @@ def make_working_directory():
     return tempfile.TemporaryDirectory("-slamcore")
 
 
-def create_image(debian_path: Path, docker_tag: str, ros_version: str):
+def resolve_path(path: Path) -> Path:
+    resolved_path = path.resolve()
+    if not resolved_path.is_file():
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+    return resolved_path
+
+
+def create_image(
+    ros_debian_path: Path, dev_debian_path: Path, docker_tag: str, ros_version: str
+):
     # names in the temporary directory
-    deb_name = "slamcore_ros.deb"
+    ros_deb_name = "slamcore-ros.deb"
+    dev_deb_name = "slamcore-dev.deb"
     entrypoint_file = "entrypoint.sh"
 
-    real_debian_path = debian_path.resolve()
-    if not real_debian_path.is_file():
-        raise RuntimeError(f"{debian_path} is not a file")
+    ros_path_resolved = resolve_path(ros_debian_path)
+    dev_path_resolved = resolve_path(dev_debian_path)
 
     with make_working_directory() as working_directory:
         tmp_dir = Path(working_directory)
 
         # must use hard link (docker can't build outside of context)
-        shutil.copy(src=real_debian_path, dst=tmp_dir / deb_name)
+        shutil.copy(src=ros_path_resolved, dst=tmp_dir / ros_deb_name)
+        shutil.copy(src=dev_path_resolved, dst=tmp_dir / dev_deb_name)
         shutil.copy(src=this_directory / entrypoint_file, dst=tmp_dir / entrypoint_file)
 
         docker_command = (
-            f"docker build --build-arg ROS_VERSION={ros_version} --build-arg SLAMCORE_DEB={deb_name} "
+            f"docker build --build-arg ROS_VERSION={ros_version} --build-arg SLAMCORE_ROS_DEB={ros_deb_name} "
+            f"--build-arg SLAMCORE_DEV_DEB={dev_deb_name} "
             f"--build-arg ENTRYPOINT_FILE={entrypoint_file} -t {docker_tag} "
             f'-f {this_directory / "Dockerfile"} {tmp_dir}'
         )
 
         print(f"Running:\n\n\t{docker_command}\n")
-        exit(subprocess.call(docker_command, shell=True,))
+        exit(
+            subprocess.call(
+                docker_command,
+                shell=True,
+            )
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        __doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
+        __doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     executable = Path(sys.argv[0]).stem
     default_tag = "slamcore-ros2"
     usecases = {
-        f'Create the docker image, use ROS2 Foxy, default name "{default_tag}"': "--ros foxy path/to/ros-foxy-slamcore-ros.deb",
-        'Create the docker image, use ROS2 Galactic, name it "myimage"': "--tag myimage --ros galactic path/to/ros-galactic-slamcore-ros.deb",
+        f'Create the docker image, use ROS2 Foxy, default name "{default_tag}"': "--ros foxy path/to/ros-foxy-slamcore-ros.deb path/to/slamcore-dev.deb",
+        'Create the docker image, use ROS2 Galactic, name it "myimage"': "--tag myimage --ros galactic path/to/ros-galactic-slamcore-ros.deb path/to/slamcore-dev.deb",
     }
     parser.epilog = f'Usage examples:\n{"=" * 15}\n\n' + "\n".join(
         (f"- {k}\n  {executable} {v}\n" for k, v in usecases.items())
     )
 
     parser.add_argument(
-        "path", help="Path to slamcore-ros2 debian to install in created image", type=Path,
+        "ros_path",
+        help="Path to slamcore-ros2 debian to install in created image",
+        type=Path,
     )
     parser.add_argument(
-        "-t", "--tag", help="Tag to give to created image", type=str, default=default_tag,
+        "dev_path",
+        help="Path to slamcore-dev debian to install in created image",
+        type=Path,
+    )
+    parser.add_argument(
+        "-t",
+        "--tag",
+        help="Tag to give to created image",
+        type=str,
+        default=default_tag,
     )
     parser.add_argument(
         "-r",
@@ -97,4 +127,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    create_image(args.path, args.tag, args.ros)
+    create_image(args.ros_path, args.dev_path, args.tag, args.ros)

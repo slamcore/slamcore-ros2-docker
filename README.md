@@ -1,17 +1,17 @@
-# SLAMcore ROS2 docker
+# Slamcore ROS2 docker
 
 ## Building
 
 To build the docker image, invoke the following script **on the same device the
 node will run**. Select either `foxy` or `galactic` as the ROS distribution using
-the `--ros` argument and make sure that you have downloaded the right SLAMcore
-Debian package for this version of ROS as well as for the architecture of the
+the `--ros` argument and make sure that you have downloaded the right Slamcore
+Debian packages for this version of ROS as well as for the architecture of the
 host system (`x86` or `Jetson`). The resulting docker image will be created with
 the tag provided by the `--tag` argument or otherwise default to
 `slamcore-ros2`.
 
 ```shell
-./build.py ../path/to/slamcore_ros2_package.deb --ros foxy/galactic [--tag image_tag]
+./build.py ../path/to/slamcore_ros2_package.deb ../path/to/slamcore_dev_package.deb --ros foxy/galactic [--tag image_tag]
 ```
 
 ## Running
@@ -43,7 +43,7 @@ If you would like to save the resulting session from the SLAM run, which can be 
 ```shell
 docker run --rm -it --privileged --volume /path/to/save/session:/output:rw slamcore-ros2 session_save_dir:=/output
 ```
-Simply replace the `/path/to/save/session` above, with the absolute path to the directory where the session file should be saved on your host machine. 
+Simply replace the `/path/to/save/session` above, with the absolute path to the directory where the session file should be saved on your host machine.
 
 > The `--volume` flag maps the host machine directory `/path/to/save/session` to the container directory `/output` - this is done by mounting the `/path/to/save/session` directory as `/output` inside the container. Therefore, when something is saved to the `/output` directory in the container, it will be saved to the provided path on the host machine and not lost when the container is shut down.
 
@@ -120,46 +120,27 @@ In the example above, `--volume /path/to/save/dataset:/output` maps the host dir
 Once the node is running it is possible to subscribe to the advertised topics in another docker container, for example:
 
 ```shell
-docker run --rm -it ros:foxy ros2 topic echo /slamcore/pose
+docker run --rm -it --privileged --env SLAMCORE_MODE=PASSTHROUGH slamcore-ros2 ros2 topic echo /slamcore/pose
 ```
-It is also possible to execute:
 
-```shell
-docker run --rm -it ros:foxy bash
-```
-and then within that docker container run commands such as:
-
-```shell
-ros2 topic list
-```
 You can find more details on the available topics in our [ROS2 Wrapper Advertised Topics](https://docs.slamcore.com/ros2-wrapper.html#advertised-topics) documentation section.
 
 ## Calling a service
 
-When the node is running, you can also call the available services from another docker container, for example:
+When the node is running, you can also call the available services in another
+docker container. For example the following command will allow you to save the
+session file from the current session:
 
 ```shell
-docker run --rm -it ros:foxy ros2 service call /slamcore/save_session std_srvs/Trigger
+docker run --rm -it --privileged --env SLAMCORE_MODE=PASSTHROUGH slamcore-ros2 ros2 service call /slamcore/save_session std_srvs/Trigger
 ```
-will allow you to save the session file from the current session.
 
-Similar to topics, you can run a new container with:
-
-```shell
-docker run --rm -it ros:foxy bash
-```
-and then inside it, run
-
-```shell
-ros2 service list -t
-```
-to get the full list of available services. You can find more details on the available services in our [ROS2 Wrapper Advertised Services](https://docs.slamcore.com/ros2-wrapper.html#advertised-services) documentation section.
+To get the full list of available services. You can find more details on the available services in our [ROS2 Wrapper Advertised Services](https://docs.slamcore.com/ros2-wrapper.html#advertised-services) documentation section.
 
 ## Visualising using RViz2
 
 You can run another container with RViz2 to visualise the
 topics being published. A simple way to do this is by using a `ros:foxy-desktop` image:
-
 
 ```shell
 xhost +local:docker && docker run -it --network=host --privileged --env="DISPLAY" --env="QT_X11_NO_MITSHM=1" --volume /tmp/.X11-unix:/tmp/.X11-unix:rw osrf/ros:foxy-desktop && xhost -local:docker
