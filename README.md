@@ -1,17 +1,53 @@
-# Slamcore ROS2 docker
+# Slamcore ROS 2 docker
 
 ## Building
 
 To build the docker image, invoke the following script **on the same device the
-node will run**. Select either `foxy` or `galactic` as the ROS distribution using
-the `--ros` argument and make sure that you have downloaded the right Slamcore
+node will run**. Select either `foxy`, `galactic` or `humble` as the ROS distribution 
+using the `--ros` argument and make sure that you have downloaded the right Slamcore
 Debian packages for this version of ROS as well as for the architecture of the
-host system (`x86` or `Jetson`). The resulting docker image will be created with
-the tag provided by the `--tag` argument or otherwise default to
-`slamcore-ros2`.
+host system (`x86` or `Jetson`). You will need to provide the `slamcore-dev` package
+which matches the chosen ROS 2 distribution, e.g. for `humble` you should use the `jammy` 
+`slamcore-dev` package. The resulting docker image will be created with the tag provided
+by the `--tag` argument or otherwise default to `slamcore-ros2`.
 
 ```shell
-./build.py ../path/to/slamcore_ros2_package.deb ../path/to/slamcore_dev_package.deb --ros foxy/galactic [--tag image_tag]
+./build.py ../path/to/slamcore_ros2_package.deb ../path/to/slamcore_dev_package.deb --ros foxy/galactic/humble [--tag image_tag]
+```
+
+## Building with Panoptic Segmentation Support
+
+> Note - Panoptic Segmentation is currently only supported on ROS 2 Foxy and Galactic.
+
+On platforms that support the panoptic segmentation plugin (currently only Nvidia Jetson
+platforms listed on [docs.slamcore.com/requirements](https://docs.slamcore.com/requirements.html)),
+you can  provide the `slamcore-panoptic-segmenation` package using the `--panoptic_path`
+argument to build a docker image with GPU support.
+```shell
+./build.py ../path/to/slamcore_ros2_package.deb ../path/to/slamcore_dev_package.deb --panoptic_path ../path/to/slamcore_panoptic_segmentation_package.deb --ros foxy/galactic [--tag image_tag]
+```
+
+The machine learning model will be optimised for the current GPU during the build process, which can take up to 15 minutes.
+This will require a docker system set up with nvidia as the default runtime in `/etc/docker/daemon.json`:
+```
+"default-runtime": "nvidia"
+```
+The following is an example of how the added line appears in the JSON file. Do not remove any pre-existing content when making this change.
+```json
+{
+    "default-runtime": "nvidia",
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+```
+
+> Note - remember to restart the docker service after any change to `/etc/docker/daemon.json`:
+```shell
+sudo systemctl restart docker
 ```
 
 ## Running
@@ -108,7 +144,7 @@ $ ros2 launch slamcore_slam slam_publisher.launch.py
 
 ### Recording a dataset
 
-To record a dataset using the ROS2 wrapper, invoke the following command, with the adjustments required for your setup:
+To record a dataset using the ROS 2 wrapper, invoke the following command, with the adjustments required for your setup:
 
 ```shell
 docker run --rm -it --privileged --volume /path/to/save/dataset:/output:rw --env SLAMCORE_MODE=DATASET_RECORDER slamcore-ros2 output_dir:=/output/my_dataset
@@ -123,7 +159,7 @@ Once the node is running it is possible to subscribe to the advertised topics in
 docker run --rm -it --privileged --env SLAMCORE_MODE=PASSTHROUGH slamcore-ros2 ros2 topic echo /slamcore/pose
 ```
 
-You can find more details on the available topics in our [ROS2 Wrapper Advertised Topics](https://docs.slamcore.com/ros2-wrapper.html#advertised-topics) documentation section.
+You can find more details on the available topics in our [ROS 2 Wrapper Advertised Topics](https://docs.slamcore.com/ros2-wrapper.html#advertised-topics) documentation section.
 
 ## Calling a service
 
@@ -135,22 +171,24 @@ session file from the current session:
 docker run --rm -it --privileged --env SLAMCORE_MODE=PASSTHROUGH slamcore-ros2 ros2 service call /slamcore/save_session std_srvs/Trigger
 ```
 
-To get the full list of available services. You can find more details on the available services in our [ROS2 Wrapper Advertised Services](https://docs.slamcore.com/ros2-wrapper.html#advertised-services) documentation section.
+To get the full list of available services. You can find more details on the available services in our [ROS 2 Wrapper Advertised Services](https://docs.slamcore.com/ros2-wrapper.html#advertised-services) documentation section.
 
 ## Visualising using RViz2
 
 You can run another container with RViz2 to visualise the
-topics being published. A simple way to do this is by using a `ros:foxy-desktop` image:
+topics being published. A simple way to do this is by using a `ros:<ROS_VERSION>-desktop` image:
 
 ```shell
-xhost +local:docker && docker run -it --network=host --privileged --env="DISPLAY" --env="QT_X11_NO_MITSHM=1" --volume /tmp/.X11-unix:/tmp/.X11-unix:rw osrf/ros:foxy-desktop && xhost -local:docker
+xhost +local:docker && docker run -it --network=host --privileged --env="DISPLAY" --env="QT_X11_NO_MITSHM=1" --volume /tmp/.X11-unix:/tmp/.X11-unix:rw osrf/ros:<ROS_VERSION>-desktop && xhost -local:docker
 ```
+
+Replace `<ROS_VERSION>` with your chosen distribution: `foxy`, `galactic` or `humble`.
 
 `xhost +local:docker` allows docker to access the X server to display graphics
 before launching the container and `xhost -local:docker` removes the
 permissions when exiting the container, for security.
 
-The command above will bring up a `ros:foxy-desktop` image which includes RViz2,
+The command above will bring up a `ros:<ROS_VERSION>-desktop` image which includes RViz2,
 so you can just run the following from inside the container to open RViz2:
 
 ```shell

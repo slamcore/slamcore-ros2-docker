@@ -1,0 +1,42 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG ROS_VERSION
+
+# Install ROS 2
+RUN apt-get update && apt-get install -q -y --no-install-recommends dirmngr gnupg2 lsb-release
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+RUN echo "deb http://packages.ros.org/ros2/ubuntu `lsb_release -c -s` main" > /etc/apt/sources.list.d/ros2-latest.list
+
+RUN apt-get update && apt-get install -o DPkg::options::="--force-overwrite" -y --no-install-recommends ros-${ROS_VERSION}-ros-base ros-${ROS_VERSION}-diagnostic-updater
+
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    python3-colcon-common-extensions \
+    python3-colcon-mixin \
+    libboost-filesystem-dev
+
+ARG SLAMCORE_ROS_DEB
+ARG SLAMCORE_DEV_DEB
+ARG SLAMCORE_PANOPTIC_DEB
+ARG ENTRYPOINT_FILE
+
+COPY $SLAMCORE_DEV_DEB /slamcore-dev.deb
+COPY $SLAMCORE_ROS_DEB /slamcore-ros.deb
+COPY $SLAMCORE_PANOPTIC_DEB /slamcore-panoptic.deb
+RUN apt-get update && apt-get install -y /slamcore-dev.deb /slamcore-ros.deb && dpkg -i --ignore-depends=nvidia-l4t-core,nvidia-l4t-cuda /slamcore-panoptic.deb
+
+# Make sure that GPU is available and build the ML model for the target platform if necessary
+RUN if ! /usr/bin/check_panoptic_segmentation; then \
+      echo "Panoptic segmentation check: FAILED\nMake sure nvidia is the default docker runtime\n\n" >&2; \
+      exit 1; \
+    fi
+
+RUN echo $ROS_VERSION > ~/.ros_version
+COPY $ENTRYPOINT_FILE /entrypoint.sh
+
+# Make sure that only one ROS version is installed
+RUN if [ "$(/bin/ls /opt/ros/ | wc -l)" -ne "1" ]; then \
+      echo "\n\nDetected multiple installed versions of ROS. Make sure that you have installed the right Slamcore debian package for the dockerfile at hand.\n\n"; \
+      exit 1; \
+    fi
+ENTRYPOINT [ "/entrypoint.sh" ]
